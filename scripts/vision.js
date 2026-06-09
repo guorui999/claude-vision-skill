@@ -21,6 +21,30 @@ const CONFIG_FILE = path.join(SKILL_DIR, "config.json");
 const CACHE_FILE = path.join(SKILL_DIR, "cache.json");
 const CACHE_MAX = 50;
 const DEF_CFG = { base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", api_key: "", model: "qwen3.5-omni-plus", language: "zh" };
+
+// ── In-memory cache (lazy write) ──
+
+let _cacheData = null;
+let _cacheDirty = false;
+
+function loadCache() {
+  if (_cacheData) return _cacheData;
+  try {
+    if (fs.existsSync(CACHE_FILE)) _cacheData = JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8"));
+    else _cacheData = {};
+  } catch (e) { _cacheData = {}; }
+  return _cacheData;
+}
+function flushCache() {
+  if (!_cacheDirty || !_cacheData) return;
+  try {
+    const e = Object.entries(_cacheData).sort((a, b) => (a[1].t || 0) - (b[1].t || 0));
+    if (e.length > CACHE_MAX) _cacheData = Object.fromEntries(e.slice(-CACHE_MAX));
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(_cacheData, null, 2), "utf-8");
+    _cacheDirty = false;
+  } catch (e) { /* best-effort write */ }
+}
+process.on("exit", flushCache);
 const EXTS = { jpg: "jpeg", jpeg: "jpeg", png: "png", gif: "gif", webp: "webp", bmp: "bmp" };
 const MAX_SIZE = 20 * 1024 * 1024;
 
@@ -28,22 +52,16 @@ const MAX_SIZE = 20 * 1024 * 1024;
 
 function loadConfig() {
   if (fs.existsSync(CONFIG_FILE)) try { return JSON.parse(fs.readFileSync(CONFIG_FILE, "utf-8")); } catch (e) { console.error("⚠️ 配置文件格式错误:", e.message); }
-  try { require("dotenv").config({ path: path.join(SKILL_DIR, ".env") }); } catch {}
+  if (fs.existsSync(path.join(SKILL_DIR, ".env"))) {
+    try { require("dotenv").config({ path: path.join(SKILL_DIR, ".env") }); } catch { /* dotenv not installed, skip .env loading */ }
+  }
   if (process.env.DASHSCOPE_API_KEY) return { base_url: process.env.DASHSCOPE_BASE_URL || DEF_CFG.base_url, api_key: process.env.DASHSCOPE_API_KEY, model: process.env.VISION_MODEL || DEF_CFG.model };
   return DEF_CFG;
 }
 function saveConfig(c) { fs.writeFileSync(CONFIG_FILE, JSON.stringify(c, null, 2), "utf-8"); }
 
-// ── Cache ──
+// ── Cache helpers (backed by in-memory cache above) ──
 
-function loadCache() { try { if (fs.existsSync(CACHE_FILE)) return JSON.parse(fs.readFileSync(CACHE_FILE, "utf-8")); } catch {} return {}; }
-function saveCache(cache) {
-  try {
-    const e = Object.entries(cache).sort((a, b) => (a[1].t || 0) - (b[1].t || 0));
-    if (e.length > CACHE_MAX) cache = Object.fromEntries(e.slice(-CACHE_MAX));
-    fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8");
-  } catch {}
-}
 function cacheKey(imgs, prompt) {
   const parts = imgs.map(i => {
     if (i.isUrl) return `url:${i.source}`;
@@ -51,8 +69,8 @@ function cacheKey(imgs, prompt) {
   });
   return crypto.createHash("md5").update(parts.join("|") + "||" + prompt).digest("hex");
 }
-function cacheGet(k) { const c = loadCache(); return c[k] ? c[k].result : null; }
-function cacheSet(k, r) { const c = loadCache(); c[k] = { result: r, t: Date.now() }; saveCache(c); }
+function cacheGet(k) { const c = loadCache(); return c[k]?.result ?? null; }
+function cacheSet(k, r) { const c = loadCache(); c[k] = { result: r, t: Date.now() }; _cacheDirty = true; }
 
 // ── Setup UI ──
 

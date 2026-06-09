@@ -31,6 +31,21 @@ node scripts/vision.js --config
 
 ### Usage
 
+#### ⚠️ Pre-flight Check (MANDATORY)
+
+Before ANY image recognition call, **FIRST check if API Key is configured**:
+
+```bash
+node scripts/vision.js --config
+```
+
+- **Configured** (`API Key: ****xxxx`) → proceed with recognition
+- **Not configured** (`API Key: ❌ 未设置`) → **STOP**. Guide the user to run:
+  ```bash
+  node scripts/vision.js --setup
+  ```
+  Wait for the user to complete setup, then re-run `--config` to confirm before continuing.
+
 #### Auto-trigger (Recommended)
 
 When user sends an image or asks to analyze one, call:
@@ -127,6 +142,21 @@ node scripts/vision.js --config
 ```
 
 ### 使用方法
+
+#### ⚠️ 配置检查（必做）
+
+调用识图功能前，**必须先检查 API Key 是否已配置**：
+
+```bash
+node scripts/vision.js --config
+```
+
+- **已配置**（显示 `API Key: ****xxxx`）→ 继续调用识图
+- **未配置**（显示 `API Key: ❌ 未设置`）→ **立即暂停**，引导用户运行：
+  ```bash
+  node scripts/vision.js --setup
+  ```
+  等待用户完成配置，再次运行 `--config` 确认已配置后再继续。
 
 #### 自动触发（推荐）
 
