@@ -2,15 +2,10 @@
 
 让没有原生识图能力的 Claude Code 模型也能"看图"。
 
-## 安装
+## 一键安装
 
 ```bash
-# 克隆仓库
-git clone https://github.com/guorui999/claude-vision-skill.git
-cd claude-vision-skill
-
-# 复制到 Claude Code skills 目录
-cp -r vision ~/.claude/skills/
+npx skills add guorui999/claude-vision-skill
 ```
 
 ## 配置
